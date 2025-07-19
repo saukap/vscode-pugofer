@@ -47,29 +47,52 @@ export function activate(context: vscode.ExtensionContext) {
 	}
 	context.subscriptions.push( disposable1, disposable2, disposable3, disposable4);
 	extensionContext = context; //TODO: remove this global variable 
+
 }
 
 function loadCurrentFile() {
 	const editor = vscode.window.activeTextEditor;
-	// get the current programming language
-	const pugLanguage = editor?.document.languageId;
-	// TODO: on file load, change the editor language to pug-simple based on the prelude type congigured in the settings
-	if (editor) {
-		const document = editor.document;
-		const filePath = document.fileName;
-		// Find the terminal named pug
-		var terminal = vscode.window.terminals.find(terminal => terminal.name === pugLanguage);
-		// Create a new terminal and run gofer
-		// const terminal = vscode.window.createTerminal('pug');
-		if (!terminal) {
-			terminal = createTerminal(pugLanguage, filePath);
-		}
-		else {
-			terminal.sendText(`:l ${filePath}`);
-		}
+	if (!editor) {
+		vscode.window.showWarningMessage('No active editor');
+		return;
+	}
+
+	const document = editor.document;
+	console.log(document)
+	const filePath = document.fileName;
+	const pugLanguage = document.languageId;
+
+	// Find existing terminal for this language
+	let terminal = vscode.window.terminals.find(t => t.name === pugLanguage);
+
+	if (document.isDirty) {
+		// Ask user to save the file first
+		vscode.window.showWarningMessage('Please save the file before loading it into PUGOFER.', 'Save and Load', 'Cancel')
+			.then(async (choice) => {
+				if (choice === 'Save and Load') {
+					await document.save();
+					loadFileIntoTerminal(terminal, pugLanguage, filePath);
+				}
+			});
+	} else {
+		loadFileIntoTerminal(terminal, pugLanguage, filePath);
+	}
+}
+
+function loadFileIntoTerminal(
+	terminal: vscode.Terminal | undefined,
+	language: string,
+	filePath: string
+) {
+	if (!terminal) {
+		terminal = createTerminal(language, filePath);
+	} else {
+		// Just send :l filePath to reload in the existing terminal
+		terminal.sendText(`:l ${filePath}`);
 		terminal.show();
 	}
 }
+
 
 // This method is called when your extension is deactivated
 export function deactivate() {}
